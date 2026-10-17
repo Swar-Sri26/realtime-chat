@@ -33,13 +33,12 @@ const messageSchema = new mongoose.Schema(
 );
 
 // a message must be either direct (receiverId) or group (groupId)
-messageSchema.pre("validate", function (next) {
+messageSchema.pre("validate", function () {
   if (!this.receiverId && !this.groupId) {
-    return next(new Error("Message needs a receiverId or a groupId"));
+    throw new Error("Message needs a receiverId or a groupId");
   }
-  next();
 });
 
-const Message = mongoose.model("message", messageSchema);
+const Message = mongoose.models.message || mongoose.model("message", messageSchema);
 
 export default Message;
