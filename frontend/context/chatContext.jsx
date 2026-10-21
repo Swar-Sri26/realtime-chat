@@ -113,6 +113,31 @@ export const ChatProvider = ({ children }) => {
       toast.error(error.message);
     }
   };
+  const addMembers = async (groupId, members) => {
+  try {
+    const { data } = await axios.put(`/api/groups/${groupId}/members`, { members });
+    if (data.success) {
+      toast.success("Members added");
+      return true;
+    }
+    toast.error(data.message);
+  } catch (error) {
+    toast.error(error.message);
+  }
+};
+
+const removeMember = async (groupId, memberId) => {
+  try {
+    const { data } = await axios.delete(`/api/groups/${groupId}/members/${memberId}`);
+    if (data.success) {
+      toast.success("Member removed");
+      return true;
+    }
+    toast.error(data.message);
+  } catch (error) {
+    toast.error(error.message);
+  }
+};
 
   // ---------- socket listeners ----------
   const subscribeToMessages = () => {
@@ -145,6 +170,16 @@ export const ChatProvider = ({ children }) => {
         prev.some((g) => g._id === group._id) ? prev : [...prev, group]
       );
     });
+    socket.on("groupUpdated", (updated) => {
+  setGroups((prev) => prev.map((g) => (g._id === updated._id ? updated : g)));
+  setSelectedGroupState((prev) => (prev && prev._id === updated._id ? updated : prev));
+});
+
+socket.on("groupRemoved", (groupId) => {
+  setGroups((prev) => prev.filter((g) => g._id !== groupId));
+  setSelectedGroupState((prev) => (prev?._id === groupId ? null : prev));
+  toast("You were removed from a group");
+});
   };
 
   const unsubscribeMessage = () => {
@@ -182,6 +217,8 @@ export const ChatProvider = ({ children }) => {
     getGroupMessages,
     sendGroupMessage,
     createGroup,
+    addMembers,
+    removeMember
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

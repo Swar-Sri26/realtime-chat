@@ -12,7 +12,7 @@ const Home = () => {
   // hide the right panel again when the chat changes or closes
   useEffect(() => {
     setShowRightSidebar(false);
-  }, [selectedUser, selectedGroup]);
+  }, [selectedUser?._id, selectedGroup?._id]);
 
   return (
     <div className="border w-full h-screen sm:px-[15%] sm:py-[5%]">

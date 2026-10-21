@@ -60,4 +60,82 @@ export const sendGroupMessage = async (req, res) => {
     console.log("sendGroupMessage error:", error);
     res.json({ success: false, message: error.message });
   }
+  
+};
+export const addMembers = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { members } = req.body; // array of user ids
+
+    const group = await Group.findById(groupId);
+    if (!group) return res.json({ success: false, message: "Group not found" });
+    if (group.admin.toString() !== req.user._id.toString()) {
+      return res.json({ success: false, message: "Only the admin can add members" });
+    }
+    if (!Array.isArray(members) || members.length === 0) {
+      return res.json({ success: false, message: "Pick at least one member" });
+    }
+
+    const oldIds = group.members.map((m) => m.toString());
+    const newIds = members.filter((id) => !oldIds.includes(id));
+
+    const updated = await Group.findByIdAndUpdate(
+      groupId,
+      { $addToSet: { members: { $each: newIds } } },
+      { new: true }
+    );
+
+    // online new members join the room and see the group in their sidebar
+    newIds.forEach((id) => {
+      const socketId = userSocketMap[id];
+      if (socketId) {
+        io.in(socketId).socketsJoin(groupId);
+        io.to(socketId).emit("newGroup", updated);
+      }
+    });
+
+    // everyone in the room updates their member list
+    io.to(groupId).emit("groupUpdated", updated);
+
+    res.json({ success: true, group: updated });
+  } catch (error) {
+    console.log("addMembers error:", error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export const removeMember = async (req, res) => {
+  try {
+    const { groupId, memberId } = req.params;
+
+    const group = await Group.findById(groupId);
+    if (!group) return res.json({ success: false, message: "Group not found" });
+    if (group.admin.toString() !== req.user._id.toString()) {
+      return res.json({ success: false, message: "Only the admin can remove members" });
+    }
+    if (memberId === group.admin.toString()) {
+      return res.json({ success: false, message: "The admin can't be removed" });
+    }
+
+    const updated = await Group.findByIdAndUpdate(
+      groupId,
+      { $pull: { members: memberId } },
+      { new: true }
+    );
+
+    // tell the removed user, then take their socket out of the room
+    const socketId = userSocketMap[memberId];
+    if (socketId) {
+      io.to(socketId).emit("groupRemoved", groupId);
+      io.in(socketId).socketsLeave(groupId);
+    }
+
+    // remaining members update their list (the removed user is already out)
+    io.to(groupId).emit("groupUpdated", updated);
+
+    res.json({ success: true, group: updated });
+  } catch (error) {
+    console.log("removeMember error:", error);
+    res.json({ success: false, message: error.message });
+  }
 };

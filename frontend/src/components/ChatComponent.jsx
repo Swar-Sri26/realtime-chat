@@ -60,13 +60,15 @@ function ChatComponent({ onProfileClick }) {
     reader.readAsDataURL(file);
   };
 
+  // depend on the ids only, so member updates (which replace the
+  // selectedGroup object) don't reload the messages
   useEffect(() => {
     if (selectedUser) {
       getMessages(selectedUser._id);
     } else if (selectedGroup) {
       getGroupMessages(selectedGroup._id);
     }
-  }, [selectedUser, selectedGroup]);
+  }, [selectedUser?._id, selectedGroup?._id]);
 
   useEffect(() => {
     if (scrollEnd.current && messages) {
